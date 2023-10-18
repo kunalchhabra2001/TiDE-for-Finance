@@ -11,6 +11,7 @@ from time_features import *
 import random
 from matplotlib import pyplot as plt
 import warnings
+from revIN import RevIN
 
 class CPIDataset():
     def __init__(self, related_series_type, device,):
@@ -144,12 +145,12 @@ class BankNiftyFuturesDataset():
             self.date_features_dict[date] = date_features[i]
         
         # setup series names features
-        tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        #tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
         self.all_series_names = list(df.columns)[1:]
         # self.all_series_names = [list(df.columns)[1]]
         for i, asn in enumerate(self.all_series_names):
             self.all_series_indices[asn] = i
-        self.all_series_names_tokenized = tokenizer(self.all_series_names,max_length=512,truncation=True,padding='max_length',return_attention_mask=True,return_token_type_ids=False,add_special_tokens=True,return_tensors='pt')
+        #self.all_series_names_tokenized = tokenizer(self.all_series_names,max_length=512,truncation=True,padding='max_length',return_attention_mask=True,return_token_type_ids=False,add_special_tokens=True,return_tensors='pt')
 
         # setup train-val-test split
         df['year'] = df.Date.dt.year
@@ -194,9 +195,9 @@ class BankNiftyFuturesDataset():
         #print("Past TS",past_ts)
         #print("Future TS",future_ts)
 
-        series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[col]].to(self.device)
-        series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[col]].to(self.device)
-        series_names_tokenized = {'input_ids':series_names_tokenized_iid.unsqueeze(0), 'attention_mask':series_names_tokenized_am.unsqueeze(0)}
+        # series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[col]].to(self.device)
+        # series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[col]].to(self.device)
+        # series_names_tokenized = {'input_ids':series_names_tokenized_iid.unsqueeze(0), 'attention_mask':series_names_tokenized_am.unsqueeze(0)}
 
         date_features_vector = []
         future_date_features_vector = []
@@ -210,21 +211,29 @@ class BankNiftyFuturesDataset():
         future_date_features_vector = torch.tensor(future_date_features_vector).to(self.device)
         df2 = df.loc[:,~df.columns.isin(['Price','Date'])].iloc[i-history_len:i]
         rel_col_names = self.all_series_names[1:]
-        rel_past_ts = torch.tensor(np.array(df2.values)).to(self.device)
+        #rel_past_ts = torch.tensor(np.array(df2.values)).to(self.device)
+        list_of_t = []
               
-        rel_ptm = torch.mean(rel_past_ts)
-        rel_pts = torch.std(rel_past_ts)
-        rel_past_ts = (rel_past_ts-rel_ptm)/rel_pts
+        # rel_ptm = torch.mean(rel_past_ts)
+        # rel_pts = torch.std(rel_past_ts)
+        for colum in df2.columns:
+            rel_past_ts = torch.tensor(np.array(df2[colum])).to(self.device)
+            rel_ptm = torch.mean(rel_past_ts)
+            rel_pts = torch.std(rel_past_ts)
+            rel_past_ts = (rel_past_ts-rel_ptm)/rel_pts
+            list_of_t.append(rel_past_ts)
+            #rel_past_ts = list_of_t[0]
+            rel_past_ts = torch.cat(tensors=list_of_t, dim=0)
         #print("Related Series", rel_past_ts)
-        rel_series_names_tokenized_list = [] #List of dictionaries
-        for rel_col in rel_col_names:
-            rel_series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[rel_col]].to(self.device)
-            rel_series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[rel_col]].to(self.device)
-            rel_series_names_tokenized = {'input_ids':rel_series_names_tokenized_iid.unsqueeze(0), 'attention_mask':rel_series_names_tokenized_am.unsqueeze(0)}
-            rel_series_names_tokenized_list.append(rel_series_names_tokenized)
+        # rel_series_names_tokenized_list = [] #List of dictionaries
+        # for rel_col in rel_col_names:
+        #     rel_series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[rel_col]].to(self.device)
+        #     rel_series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[rel_col]].to(self.device)
+        #     rel_series_names_tokenized = {'input_ids':rel_series_names_tokenized_iid.unsqueeze(0), 'attention_mask':rel_series_names_tokenized_am.unsqueeze(0)}
+        #     rel_series_names_tokenized_list.append(rel_series_names_tokenized)
 
-
-        return past_ts.unsqueeze(0), series_names_tokenized, date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts, rel_series_names_tokenized_list
+        return past_ts.unsqueeze(0), date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts
+        #return past_ts.unsqueeze(0), series_names_tokenized, date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts, rel_series_names_tokenized_list
 
 class OptionsDataset():
     def __init__(self, device):
@@ -253,12 +262,12 @@ class OptionsDataset():
             self.date_features_dict[date] = date_features[i]
         
         # setup series names features
-        tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-        self.all_series_names = list(df.columns)[1:]
-        # self.all_series_names = [list(df.columns)[1]]
-        for i, asn in enumerate(self.all_series_names):
-            self.all_series_indices[asn] = i
-        self.all_series_names_tokenized = tokenizer(self.all_series_names,max_length=512,truncation=True,padding='max_length',return_attention_mask=True,return_token_type_ids=False,add_special_tokens=True,return_tensors='pt')
+        #tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        # self.all_series_names = list(df.columns)[1:]
+        # # self.all_series_names = [list(df.columns)[1]]
+        # for i, asn in enumerate(self.all_series_names):
+        #     self.all_series_indices[asn] = i
+        #self.all_series_names_tokenized = tokenizer(self.all_series_names,max_length=512,truncation=True,padding='max_length',return_attention_mask=True,return_token_type_ids=False,add_special_tokens=True,return_tensors='pt')
 
         # setup train-val-test split
         df['year'] = df.Date.str[-2:]
@@ -301,12 +310,12 @@ class OptionsDataset():
         future_ts = torch.tensor(list(df[col].iloc[i:i+pred_len])).to(self.device)
         past_ts = (past_ts-ptm)/pts
         print("Past TS", past_ts)
-        future_ts = (future_ts-ptm)/pts
+        #future_ts = (future_ts-ptm)/pts
         print("Future TS", future_ts)
 
-        series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[col]].to(self.device)
-        series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[col]].to(self.device)
-        series_names_tokenized = {'input_ids':series_names_tokenized_iid.unsqueeze(0), 'attention_mask':series_names_tokenized_am.unsqueeze(0)}
+        # series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[col]].to(self.device)
+        # series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[col]].to(self.device)
+        # series_names_tokenized = {'input_ids':series_names_tokenized_iid.unsqueeze(0), 'attention_mask':series_names_tokenized_am.unsqueeze(0)}
 
         date_features_vector = []
         future_date_features_vector = []
@@ -320,17 +329,27 @@ class OptionsDataset():
         future_date_features_vector = torch.tensor(future_date_features_vector).to(self.device)
         df2 = df.loc[:,~df.columns.isin(['Option Price','Date'])].iloc[i-history_len:i]
         rel_col_names = self.all_series_names[1:]
-        rel_past_ts = torch.tensor(np.array(df2.values)).to(self.device)
-        rel_ptm = torch.mean(rel_past_ts)
-        rel_pts = torch.std(rel_past_ts)
-        rel_past_ts = (rel_past_ts-rel_ptm)/rel_pts
-        print()
-        rel_series_names_tokenized_list = [] #List of dictionaries
-        for rel_col in rel_col_names:
-            rel_series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[rel_col]].to(self.device)
-            rel_series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[rel_col]].to(self.device)
-            rel_series_names_tokenized = {'input_ids':rel_series_names_tokenized_iid.unsqueeze(0), 'attention_mask':rel_series_names_tokenized_am.unsqueeze(0)}
-            rel_series_names_tokenized_list.append(rel_series_names_tokenized)
+        list_of_t = []
+        for colum in df2.columns:
+            rel_past_ts = torch.tensor(np.array(df2[colum])).to(self.device)
+            rel_ptm = torch.mean(rel_past_ts)
+            rel_pts = torch.std(rel_past_ts)
+            rel_past_ts = (rel_past_ts-rel_ptm)/rel_pts
+            list_of_t.append(rel_past_ts)
+        rel_past_ts = list_of_t[0]
+        for j in range(1,len(list_of_t)):
+            rel_past_ts = torch.cat(rel_past_ts,list_of_t[j])
+        # rel_past_ts = torch.tensor(np.array(df2.values)).to(self.device)
+        # rel_ptm = torch.mean(rel_past_ts)
+        # rel_pts = torch.std(rel_past_ts)
+        # rel_past_ts = (rel_past_ts-rel_ptm)/rel_pts
+        print("Related past ts",rel_past_ts)
+        #rel_series_names_tokenized_list = [] #List of dictionaries
+        # for rel_col in rel_col_names:
+        #     rel_series_names_tokenized_iid = self.all_series_names_tokenized['input_ids'][self.all_series_indices[rel_col]].to(self.device)
+        #     rel_series_names_tokenized_am = self.all_series_names_tokenized['attention_mask'][self.all_series_indices[rel_col]].to(self.device)
+        #     rel_series_names_tokenized = {'input_ids':rel_series_names_tokenized_iid.unsqueeze(0), 'attention_mask':rel_series_names_tokenized_am.unsqueeze(0)}
+        #     rel_series_names_tokenized_list.append(rel_series_names_tokenized)
 
-
-        return past_ts.unsqueeze(0), series_names_tokenized, date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts, rel_series_names_tokenized_list
+        return past_ts.unsqueeze(0), date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts
+        #return past_ts.unsqueeze(0), series_names_tokenized, date_features_vector.unsqueeze(0), future_date_features_vector.unsqueeze(0),future_ts.unsqueeze(0), rel_past_ts, rel_series_names_tokenized_list
