@@ -28,8 +28,8 @@ class TideModel(torch.nn.Module):
     super().__init__()
     self.model_config = model_config # comment - add input_dim
 
-    self.text_module = TextModel(device=device, text_dim=model_config['text_dim'])
-    self.loc_module = LocationModel(device=device)
+    #self.text_module = TextModel(device=device, text_dim=model_config['text_dim'])
+    #self.loc_module = LocationModel(device=device)
 
     self.pred_len = pred_len
     self.history_len = history_len
@@ -135,13 +135,13 @@ class TideModel(torch.nn.Module):
       # print(self.linears[col].device)
       residual_out = self.linears[col](past_ts)
     # print('residual_out shape: ', residual_out.shape)
-    enc_text = self.text_module(series_names)
-    related_enc_text_list = []
-    if related_ts is not None:
-      for series in related_series_names:
-        related_enc_text = self.text_module(series)
-        #print(type(related_enc_text))
-        related_enc_text_list.append(related_enc_text)
+    # enc_text = self.text_module(series_names)
+    # related_enc_text_list = []
+    # if related_ts is not None:
+    #   for series in related_series_names:
+    #     related_enc_text = self.text_module(series)
+    #     #print(type(related_enc_text))
+    #     related_enc_text_list.append(related_enc_text)
       #print(len(related_enc_text_list))
       #print(len(related_ts))
       
@@ -161,7 +161,8 @@ class TideModel(torch.nn.Module):
         #print('dates shape: ', dates.shape)
         #print('past ts shape: ', past_ts.shape)
         #print('enc_text shape: ', enc_text.shape)
-        encoder_input = torch.cat([past_ts, dates, enc_text], dim=1) # check dim
+        encoder_input = torch.cat([past_ts, dates], dim=1) # check dim
+        #encoder_input = torch.cat([past_ts, dates, enc_text], dim=1) # check dim
         encoder_input_related_list = []
         if related_ts is not None:
           #print('previous related shape', related_ts.shape)
@@ -172,12 +173,14 @@ class TideModel(torch.nn.Module):
             #print(related_ts[:,:,i].shape)
             #print(dates.shape)
             #print(related_enc_text_list[i].shape)
-            encoder_input_related = torch.cat([related_ts[:,:,i], dates, related_enc_text_list[i]], dim = 1).to(torch.float32)
+            encoder_input_related = torch.cat([related_ts[:,:,i], dates], dim = 1).to(torch.float32)
+            #encoder_input_related = torch.cat([related_ts[:,:,i], dates, related_enc_text_list[i]], dim = 1).to(torch.float32)
             encoder_input_related_list.append(encoder_input_related)
       else:
-        encoder_input = torch.cat([past_ts, enc_text], dim=1) # check dim
+        encoder_input = past_ts
         if related_ts is not None:
-          encoder_input_related = torch.cat([related_ts, related_enc_text], dim=1)
+          encoder_input_related = related_ts
+          #encoder_input_related = torch.cat([related_ts, related_enc_text], dim=1)
 
     # (batch , fdim x H) should be the shape of all inputs to be concatenated like past_ts, H is pred_len
     # print('encoder_input shape: ', encoder_input.shape)
